@@ -28,13 +28,6 @@ class CodeMessageMixin:
         self.message: Optional[str] = message or self.message
 
 
-class InvalidResponseError(BaseAPIError):
-    """."""
-
-    code = 'invalid_response'
-    message = 'Invalid response'
-
-
 class InvalidDataError(CodeMessageMixin, BaseAPIError):
     """."""
 
