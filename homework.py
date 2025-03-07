@@ -1,4 +1,3 @@
-from logging import DEBUG, getLogger, StreamHandler
 import logging
 import os
 import sys
@@ -45,7 +44,7 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    """Check the vailability of main tokens."""
+    """Checks for the availability of basic tokens."""
     tokens = (
         ('PRACTICUM_TOKEN', PRACTICUM_TOKEN),
         ('TELEGRAM_TOKEN', TELEGRAM_TOKEN),
@@ -61,7 +60,7 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Send message with status in Telegram."""
+    """Sends message with status in Telegram."""
     logger.debug('Try to send message to Telegram')
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
@@ -73,14 +72,14 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Make a request to Yandex Practicum API."""
+    """Makes a request to Yandex Practicum API."""
     payload = {'from_date': timestamp}
     try:
         response = requests.get(
             ENDPOINT, headers=HEADERS, params=payload)
     except requests.RequestException as e:
         if response.status_code == 400:
-            logger.error('UnknownError: Wrong from_date format')   
+            logger.error('UnknownError: Wrong from_date format')
         if response.status_code == 401:
             logger.error(
                 'not_authenticated: Учетные данные не были предоставлены.')
@@ -94,7 +93,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Check the response from the Yandex Practicum."""
+    """Checks the response from the Yandex Practicum API."""
     if not isinstance(response, dict):
         raise TypeError('The type of response does not correspond to dict')
 
@@ -107,7 +106,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Parse the status and name of homework from the response."""
+    """Parses the status and name of homework from the response."""
     try:
         homework_name = homework['homework_name']
     except KeyError:
@@ -127,8 +126,7 @@ def parse_status(homework):
 
 
 def main():
-    """Основная логика работы бота."""
-    # Создаем объект класса бота
+    """The basic logic of the bot's operation."""
     check_tokens()
 
     bot = TeleBot(token=TELEGRAM_TOKEN)
@@ -144,7 +142,7 @@ def main():
             if last_work != previews_work:
                 status_message = parse_status(last_work)
                 previews_work = last_work
-                send_message(TELEGRAM_CHAT_ID, status_message)
+                send_message(bot, status_message)
             logger.debug('There is no a new status')
         except InvalidDataError as e:
             logger.debug(

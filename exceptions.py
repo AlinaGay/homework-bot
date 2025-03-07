@@ -2,7 +2,7 @@ from typing import Optional
 
 
 class BaseAPIError(Exception):
-    """."""
+    """Basic exception for API."""
 
     @property
     def code(self):
@@ -16,7 +16,7 @@ class BaseAPIError(Exception):
 
 
 class CodeMessageMixin:
-    """."""
+    """Mixin with code and message for exception."""
 
     def __init__(
             self,
@@ -29,7 +29,7 @@ class CodeMessageMixin:
 
 
 class InvalidDataError(CodeMessageMixin, BaseAPIError):
-    """."""
+    """Exception for invalid data."""
 
     code = 'invalid_data'
     message = 'Invalid data'
