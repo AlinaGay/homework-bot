@@ -9,7 +9,7 @@ from datetime import timedelta
 from dotenv import load_dotenv
 from telebot import TeleBot
 
-from exceptions import InvalidDataError, InvalidResponseError
+from exceptions import InvalidDataError
 
 
 load_dotenv()
@@ -75,49 +75,52 @@ def send_message(bot, message):
 def get_api_answer(timestamp):
     """Make a request to Yandex Practicum API."""
     payload = {'from_date': timestamp}
-    response = requests.get(
-        ENDPOINT, headers=HEADERS, params=payload)     
-    if response.status_code == 400:
-        code = response['code']
-        error = response['error']
-        raise InvalidResponseError(
-            code=code,
-            message=f'400 Bad request : {error}')
-    if response.status_code == 401:
-        error_code = response.get('code')
-        message = response.get('message')
-        raise InvalidResponseError(
-            code=error_code,
-            message=f'Ошибка с кодом {error_code} : {message}')
+    try:
+        response = requests.get(
+            ENDPOINT, headers=HEADERS, params=payload)
+    except requests.RequestException as e:
+        if response.status_code == 400:
+            logger.error('UnknownError: Wrong from_date format')   
+        if response.status_code == 401:
+            logger.error(
+                'not_authenticated: Учетные данные не были предоставлены.')
+        else:
+            logger.error(f'{e}')
+        return None
     if response.status_code != 200:
-        raise ValueError(f"Unexpected status code: {response.status_code}") 
+        raise ValueError(f"Unexpected status code: {response.status_code}")
 
-    homework_data = response.json()
-    return homework_data
+    return response.json()
 
 
-def check_response(homework_data):
+def check_response(response):
     """Check the response from the Yandex Practicum."""
-    homeworks = homework_data.get('homeworks')
+    if not isinstance(response, dict):
+        raise TypeError('The type of response does not correspond to dict')
+
+    homeworks = response.get('homeworks')
+    if not isinstance(homeworks, list):
+        raise TypeError('There is no a list of homeworks')
     if homeworks == []:
         logger.debug('The list of homeworks is empty')
         raise InvalidDataError(message='The list of homeworks is empty')
-    if type(homeworks) is not list:
-        raise TypeError('It is not the list of homeworks')
-    if type(homeworks[0]) is not dict:
-        raise TypeError('There is no dictionary inside of homeworks')
 
 
 def parse_status(homework):
     """Parse the status and name of homework from the response."""
+    try:
+        homework_name = homework['homework_name']
+    except KeyError:
+        raise InvalidDataError(message='There is no homework_name')
+
+    if homework_name is None:
+        raise InvalidDataError(message='There is no homework_name')
+
     homework_status = homework['status']
     if homework_status is None:
         raise InvalidDataError(message='There is no status')
     if homework_status not in HOMEWORK_VERDICTS:
         raise InvalidDataError(message='There is no an appropriate status')
-    homework_name = homework['homework_name']
-    if homework_name is None:
-        raise InvalidDataError(message='There is no homework_name')
 
     verdict = HOMEWORK_VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -136,19 +139,20 @@ def main():
     while True:
         try:
             response = get_api_answer(timestamp)
+            check_response(response)
             last_work = response.get('homeworks')[0]
             if last_work != previews_work:
                 status_message = parse_status(last_work)
                 previews_work = last_work
-                bot.send_message(TELEGRAM_CHAT_ID, status_message)
+                send_message(TELEGRAM_CHAT_ID, status_message)
             logger.debug('There is no a new status')
         except InvalidDataError as e:
             logger.debug(
                 f'Error of response. Code {e.code}. Message: {e.message}')
             main()
-        except InvalidResponseError as e:
+        except requests.RequestException as e:
             logger.error(
-                f'Error of response. Code {e.code}. Message: {e.message}')
+                f'Error of response: {e}')
             time.sleep(SLEEP_AFTER_ERROR_TIME)
             main()
         except Exception as error:
