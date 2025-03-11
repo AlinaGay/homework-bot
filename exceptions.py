@@ -1,38 +1,15 @@
-from typing import Optional
-
-
-class BaseAPIError(Exception):
-    """Basic exception for API."""
-
-    @property
-    def code(self):
-        """A code describing the code of the error."""
-        raise NotImplementedError
-
-    @property
-    def message(self):
-        """A message describing the reason for the error."""
-        raise NotImplementedError
-
-
-class CodeMessageMixin:
-    """Mixin with code and message for exception."""
-
-    def __init__(
-            self,
-            code: Optional[str] = None,
-            message: Optional[str] = None
-    ):
-        """
-        A code describing the code of the error.
-        A message describing the reason for the error.
-        """
-        self.code: Optional[str] = code or self.code
-        self.message: Optional[str] = message or self.message
-
-
-class InvalidDataError(CodeMessageMixin, BaseAPIError):
+class InvalidDataError(Exception):
     """Exception raised when the provided data is invalid."""
 
     code = 'invalid_data'
     message = 'Invalid data'
+
+
+class StatusCodeNot200(Exception):
+    """Exception raised when the status"""
+    """of response to API not equal to code 200."""
+
+    def __init__(self, message, code):
+        """__init__ for StatusCodeNot200."""
+        super().__init__(message)
+        self.code = code
