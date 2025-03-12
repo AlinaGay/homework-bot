@@ -10,7 +10,7 @@ import requests
 from dotenv import load_dotenv
 from telebot import TeleBot
 
-from exceptions import InvalidDataError, StatusCodeNot200
+from exceptions import StatusCodeNot200
 
 
 load_dotenv()
@@ -66,23 +66,15 @@ def check_tokens():
 def send_message(bot, message):
     """Sends message with status in Telegram."""
     logger.info('Try to send message to Telegram')
-    try:
-        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logger.debug(f'The message was sent: {message}')
-    except telebot.apihelper.ApiException or requests.exceptions.RequestException as e:
-        logger.error(f'Message was not sent: {e}')
-    except Exception as error:
-        logger.error(f'Message was not sent: {error}')
-        return False
-    logger.debug(f'Message was sent: {message}')
-    return True
+    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    logger.debug(f'The message was sent: {message}')
 
 
 def get_api_answer(timestamp):
     """Makes a request to Yandex Practicum API."""
     payload = {'from_date': timestamp}
     from_date = datetime.fromtimestamp(timestamp).strftime("%d.%m.%Y")
-    logger.info(f'Makes a request to {ENDPOINT} with from_date: {from_date}')
+    logger.info(f'Makes a request to {ENDPOINT} from_date: {from_date}')
     try:
         response = requests.get(
             ENDPOINT, headers=HEADERS, params=payload)
@@ -112,9 +104,7 @@ def check_response(response):
         raise KeyError('There is no key \'homeworks\'')
     if not isinstance(homeworks, list):
         raise TypeError(f'There is no a list of homeworks: {type(homeworks)}')
-    if homeworks == []:
-        logger.debug('The list of homeworks is empty')
-        raise InvalidDataError(message='The list of homeworks is empty')
+
     logger.info('The end of cheking response from API')
 
 
@@ -128,7 +118,7 @@ def parse_status(homework):
         if key not in homework:
             missing_keys.append(key)
     if missing_keys:
-        raise KeyError(f'There is no key: {key}')
+        raise KeyError(f'There is no key: {missing_keys}')
 
     homework_name = homework['homework_name']
     homework_status = homework['status']
@@ -148,33 +138,32 @@ def main():
     bot = TeleBot(token=TELEGRAM_TOKEN)
     day_number = 60
     timestamp = int(time.time() - timedelta(days=day_number).total_seconds())
-    previews_message = ''
+    previews_homeworks = ''
 
     while True:
         try:
             response = get_api_answer(timestamp)
             check_response(response)
-            last_work = response.get('homeworks')[0]
-            if last_work != previews_message:
-                status_message = parse_status(last_work)
-                previews_message = last_work
+            homeworks_list = response.get('homeworks')
+            if homeworks_list == []:
+                logger.debug('The list of homeworks is empty')
+                continue
+            homeworks = response.get('homeworks')[0]
+            if homeworks != previews_homeworks:
+                status_message = parse_status(homeworks)
+                previews_homeworks = homeworks
                 send_message(bot, status_message)
-            logger.debug('There is no a new status')
-        except telebot.apihelper.ApiException or requests.exceptions.RequestException as e:
-            logger.error(f'Message was not sent: {e}')
-        except InvalidDataError as e:
-            logger.debug(
-                f'Error of response. Code {e.code}. Message: {e.message}')
-            main()
-        except requests.RequestException as e:
-            logger.error(
-                f'Error of response: {e}')
-            time.sleep(SLEEP_AFTER_ERROR_TIME)
-            main()
+            if response.get('current_date'):
+                timestamp = response.get('current_date')
+            else:
+                logger.debug('There is no a new status')
+        except (telebot.apihelper.ApiException
+                or requests.exceptions.RequestException) as error:
+            logger.exception(f'Message was not sent: {error}')
         except Exception as error:
             message = f'Unfamiliar error: {error}'
             logger.error(message)
-            raise SystemExit(1)
+            send_message(bot, message)
         finally:
             time.sleep(RETRY_PERIOD)
 
