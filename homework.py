@@ -3,7 +3,7 @@ import os
 import sys
 import telebot
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from http import HTTPStatus
 
 import requests
