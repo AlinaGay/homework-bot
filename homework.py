@@ -136,8 +136,7 @@ def main():
     check_tokens()
 
     bot = TeleBot(token=TELEGRAM_TOKEN)
-    day_number = 60
-    timestamp = int(time.time() - timedelta(days=day_number).total_seconds())
+    timestamp = int(time.time())
     previews_homeworks = ''
 
     while True:
