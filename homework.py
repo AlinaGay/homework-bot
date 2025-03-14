@@ -4,7 +4,6 @@ import sys
 import telebot
 import time
 from contextlib import suppress
-from datetime import datetime
 from http import HTTPStatus
 
 import requests
