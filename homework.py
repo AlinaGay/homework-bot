@@ -3,6 +3,7 @@ import os
 import sys
 import telebot
 import time
+from contextlib import suppress
 from datetime import datetime
 from http import HTTPStatus
 
@@ -54,13 +55,14 @@ def check_tokens():
     )
     missing_tokens = []
     for name, value in tokens:
-        if value is None:
+        if not value:
             missing_tokens.append(name)
     if missing_tokens:
-        logger.critical(
-            f'The obligatory token is missed in environment: {missing_tokens}')
-        raise ValueError(
-            f'The obligatory token is missed in environment: {missing_tokens}')
+        missing_tokens = ','.join(missing_tokens)
+        error_message = 'The obligatory token is missed '
+        f'in environment: {missing_tokens}'
+        logger.critical(error_message)
+        raise ValueError(error_message)
 
 
 def send_message(bot, message):
@@ -73,23 +75,18 @@ def send_message(bot, message):
 def get_api_answer(timestamp):
     """Makes a request to Yandex Practicum API."""
     payload = {'from_date': timestamp}
-    from_date = datetime.fromtimestamp(timestamp).strftime("%d.%m.%Y")
-    logger.info(f'Makes a request to {ENDPOINT} from_date: {from_date}')
+    logger.info(f'Makes a request to {ENDPOINT} from_date: {timestamp}')
     try:
         response = requests.get(
             ENDPOINT, headers=HEADERS, params=payload)
     except requests.RequestException as error:
-        raise ConnectionError(f'Here is error: {error} '
-                              f'during the attempto to request to {ENDPOINT} '
-                              f'with from_date: {from_date}')
+        raise ConnectionError(f'Here is connection error: {error}')
     if response.status_code != HTTPStatus.OK:
         raise StatusCodeNot200(
             f"Code of answer from API: {response.status_code}",
             code=response.status_code)
 
-    logger.info(
-        f'Successfully made a request to {ENDPOINT} '
-        f'with from_date: {from_date}')
+    logger.info('The request was successfully made')
     return response.json()
 
 
@@ -101,7 +98,7 @@ def check_response(response):
 
     homeworks = response.get('homeworks')
     if homeworks is None:
-        raise KeyError('There is no key \'homeworks\'')
+        raise KeyError('There is no key "homeworks"')
     if not isinstance(homeworks, list):
         raise TypeError(f'There is no a list of homeworks: {type(homeworks)}')
 
@@ -137,23 +134,23 @@ def main():
 
     bot = TeleBot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    previews_homeworks = ''
+    previews_homework = ''
 
     while True:
         try:
             response = get_api_answer(timestamp)
             check_response(response)
             homeworks_list = response.get('homeworks')
-            if homeworks_list == []:
+            if not homeworks_list:
                 logger.debug('The list of homeworks is empty')
                 continue
-            homeworks = response.get('homeworks')[0]
-            if homeworks != previews_homeworks:
-                status_message = parse_status(homeworks)
-                previews_homeworks = homeworks
-                send_message(bot, status_message)
-            if response.get('current_date'):
-                timestamp = response.get('current_date')
+            last_homework = response.get('homeworks')[0]
+            if last_homework != previews_homework:
+                status_message = parse_status(last_homework)
+                previews_homework = last_homework
+                with suppress(ValueError):
+                    send_message(bot, status_message)
+                timestamp = response.get('current_date', timestamp)
             else:
                 logger.debug('There is no a new status')
         except (telebot.apihelper.ApiException
