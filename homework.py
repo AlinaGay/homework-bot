@@ -58,8 +58,10 @@ def check_tokens():
             missing_tokens.append(name)
     if missing_tokens:
         missing_tokens = ','.join(missing_tokens)
-        error_message = 'The obligatory token is missed '
-        f'in environment: {missing_tokens}'
+        error_message = (
+            'The obligatory token is missed '
+            f'in environment: {missing_tokens}'
+        )
         logger.critical(error_message)
         raise ValueError(error_message)
 
@@ -133,7 +135,7 @@ def main():
 
     bot = TeleBot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    previews_homework = ''
+    previews_message = ''
 
     while True:
         try:
@@ -144,11 +146,10 @@ def main():
                 logger.debug('The list of homeworks is empty')
                 continue
             last_homework = response.get('homeworks')[0]
-            if last_homework != previews_homework:
-                status_message = parse_status(last_homework)
-                previews_homework = last_homework
-                with suppress(ValueError):
-                    send_message(bot, status_message)
+            last_message = parse_status(last_homework)
+            if last_message != previews_message:
+                previews_message = last_homework
+                send_message(bot, last_message)
                 timestamp = response.get('current_date', timestamp)
             else:
                 logger.debug('There is no a new status')
@@ -157,8 +158,10 @@ def main():
             logger.exception(f'Message was not sent: {error}')
         except Exception as error:
             message = f'Unfamiliar error: {error}'
-            logger.error(message)
-            send_message(bot, message)
+            logger.exception(message)
+            with suppress(telebot.apihelper.ApiException
+                          or requests.exceptions.RequestException):
+                send_message(bot, message)
         finally:
             time.sleep(RETRY_PERIOD)
 
