@@ -1,12 +1,12 @@
 import logging
 import os
 import sys
-import telebot
 import time
 from contextlib import suppress
 from http import HTTPStatus
 
 import requests
+import telebot
 from dotenv import load_dotenv
 from telebot import TeleBot
 
@@ -84,8 +84,8 @@ def get_api_answer(timestamp):
         raise ConnectionError(f'Here is connection error: {error}')
     if response.status_code != HTTPStatus.OK:
         raise StatusCodeNot200(
-            f"Code of answer from API: {response.status_code}",
-            code=response.status_code)
+            f"Code of answer from API: {response.status_code}"
+        )
 
     logger.info('The request was successfully made')
     return response.json()
@@ -148,7 +148,7 @@ def main():
             last_homework = response.get('homeworks')[0]
             last_message = parse_status(last_homework)
             if last_message != previews_message:
-                previews_message = last_homework
+                previews_message = last_message
                 send_message(bot, last_message)
                 timestamp = response.get('current_date', timestamp)
             else:
@@ -159,9 +159,11 @@ def main():
         except Exception as error:
             message = f'Unfamiliar error: {error}'
             logger.exception(message)
-            with suppress(telebot.apihelper.ApiException
-                          or requests.exceptions.RequestException):
-                send_message(bot, message)
+            with suppress(telebot.apihelper.ApiException,
+                          requests.exceptions.RequestException):
+                if message != previews_message:
+                    send_message(bot, message)
+                    previews_message = message
         finally:
             time.sleep(RETRY_PERIOD)
 
